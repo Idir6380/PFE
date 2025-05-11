@@ -12580,7 +12580,7 @@ id,gender,age_group,race,body_shape
 05668_00,woman,thirties,white,slim
 06337_00,woman,thirties,white,slim
 06631_00,woman,thirties,white,slim
-06896_00,woman,thirties,white,slim
+06896_00,woman,thirties,white,maternity
 07554_00,woman,thirties,white,slim
 07619_00,woman,thirties,white,slim
 07958_00,woman,thirties,white,slim
@@ -12597,7 +12597,7 @@ id,gender,age_group,race,body_shape
 11044_00,woman,thirties,white,slim
 11136_00,woman,thirties,white,slim
 11278_00,woman,thirties,white,slim
-11285_00,woman,thirties,white,slim
+11285_00,woman,thirties,white,maternity
 11345_00,woman,thirties,white,slim
 11350_00,woman,thirties,white,slim
 11380_00,woman,thirties,white,slim
@@ -12614,11 +12614,11 @@ id,gender,age_group,race,body_shape
 12203_00,woman,thirties,white,slim
 12341_00,woman,thirties,white,slim
 12438_00,woman,thirties,white,slim
-12574_00,woman,thirties,white,slim
-12585_00,woman,thirties,white,slim
-12586_00,woman,thirties,white,slim
-12592_00,woman,thirties,white,slim
-12611_00,woman,thirties,white,slim
+12574_00,woman,thirties,white,maternity
+12585_00,woman,thirties,white,maternity
+12586_00,woman,thirties,white,maternity
+12592_00,woman,thirties,white,maternity
+12611_00,woman,thirties,white,maternity
 13161_00,woman,thirties,white,slim
 13367_00,woman,thirties,white,slim
 13443_00,woman,thirties,white,slim
