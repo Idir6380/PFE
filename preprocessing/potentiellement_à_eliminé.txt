@@ -1,0 +1,7 @@
+woman,senior,white,slim 1
+woman,twenties,black,maternity 2
+woman,thirties,asian,full-figured 3 maybe average
+woman,thirties,asian,average 6 à revoir
+woman,twenties,brunette,full-figured 2 may be average
+
+01395_00 ---> average to full-figured?
