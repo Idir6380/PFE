@@ -1213,7 +1213,7 @@ def main(args):
                 progress_bar.update(1)
                 global_step += 1
                 accelerator.log({"train_loss": train_loss}, step=global_step)
-                print(f"train_loss: {train_loss:.6f}")
+                print(f"optuna_metric: {train_loss:.6f}")
                 train_loss = 0.0
 
                 # DeepSpeed requires saving weights on every device; saving weights only on the main process would cause issues.
