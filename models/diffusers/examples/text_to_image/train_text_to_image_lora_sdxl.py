@@ -1086,7 +1086,8 @@ def main(args):
 
     else:
         initial_global_step = 0
-
+    #comment 
+    train_loss_sum, train_loss_count = 0.0, 0
     progress_bar = tqdm(
         range(0, args.max_train_steps),
         initial=initial_global_step,
@@ -1213,9 +1214,17 @@ def main(args):
                 progress_bar.update(1)
                 global_step += 1
                 accelerator.log({"train_loss": train_loss}, step=global_step)
-                print(f"optuna_metric: {train_loss:.6f}")
+                #print(f"optuna_metric: {train_loss:.6f}", flush=True)
+                train_loss_sum+=train_loss
+                train_loss_count+=1
+                #logs = {
+                #    "optuna_metric": f"{train_loss:.4f}",   # ou float arrondi
+                #    "step_loss": loss.detach().item(),
+                #    "lr": lr_scheduler.get_last_lr()[0]
+                #    }
+                #progress_bar.set_postfix(**logs)
                 train_loss = 0.0
-
+                
                 # DeepSpeed requires saving weights on every device; saving weights only on the main process would cause issues.
                 if accelerator.distributed_type == DistributedType.DEEPSPEED or accelerator.is_main_process:
                     if global_step % args.checkpointing_steps == 0:
@@ -1243,7 +1252,7 @@ def main(args):
                         accelerator.save_state(save_path)
                         logger.info(f"Saved state to {save_path}")
 
-            logs = {"step_loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
+            logs = {"step_loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0], "optuna_metric": f"{train_loss_sum/(train_loss_count+1):.4f}"}
             progress_bar.set_postfix(**logs)
 
             if global_step >= args.max_train_steps:
@@ -1335,8 +1344,9 @@ def main(args):
                 ignore_patterns=["step_*", "epoch_*"],
             )
 
+    print('total_loss:',train_loss_sum/(train_loss_count+1))
     accelerator.end_training()
-
+    
 
 if __name__ == "__main__":
     args = parse_args()
