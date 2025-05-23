@@ -1364,14 +1364,14 @@ def main(args):
                         num_inference_steps=60,
                         guidance_scale=7.8
                       ).images[0]
-    
+
                       logger.info(
                       f"Running validation... \n Generating images with prompt:"
                       f" {prompt}."
                       )
-                      
-                      
-                      image.resize((384, 512), Image.LANCZOS).save(f"{args.validation_data_output}_{epoch}/{row['id']}.jpg")
+
+
+                      image.resize((384, 512), Image.LANCZOS).save(f"{args.validation_data_output}_{epoch}/{row['file_name']}")
                 
                 
                 del pipeline
