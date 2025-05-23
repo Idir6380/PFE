@@ -1339,6 +1339,15 @@ def main(args):
                     variant=args.variant,
                     torch_dtype=weight_dtype,
                 )
+            
+                pipeline = pipeline.to(accelerator.device)
+
+                # run inference
+                generator = torch.Generator(device=accelerator.device).manual_seed(args.seed) if args.seed is not None else None
+                if torch.backends.mps.is_available():
+                    autocast_ctx = nullcontext()
+                else:
+                    autocast_ctx = torch.autocast(accelerator.device.type)
 
                 os.makedirs(f"{args.validation_data_output}_{epoch}", exist_ok=True)
 
@@ -1346,22 +1355,23 @@ def main(args):
 
                 # Prompt
                 for i, row in df.iterrows():
-                  prompt = row['text']
+                    prompt = row['text']
 
-                  image = pipeline(
-                    prompt=prompt,
-                    height=768, width=576,
-                    num_inference_steps=60,
-                    guidance_scale=7.8
-                  ).images[0]
-
-                  logger.info(
-                  f"Running validation... \n Generating images with prompt:"
-                  f" {prompt}."
-                  )
-                  
-                  
-                  image.resize((384, 512), Image.LANCZOS).save(f"{args.validation_data_output}_{epoch}/{row['id']}.jpg")
+                    with autocast_ctx:
+                      image = pipeline(
+                        prompt=prompt,
+                        height=768, width=576,
+                        num_inference_steps=60,
+                        guidance_scale=7.8
+                      ).images[0]
+    
+                      logger.info(
+                      f"Running validation... \n Generating images with prompt:"
+                      f" {prompt}."
+                      )
+                      
+                      
+                      image.resize((384, 512), Image.LANCZOS).save(f"{args.validation_data_output}_{epoch}/{row['id']}.jpg")
                 
                 
                 del pipeline
