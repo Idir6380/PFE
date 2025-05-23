@@ -24,6 +24,7 @@ import shutil
 from contextlib import nullcontext
 from pathlib import Path
 
+from PIL import Image
 import datasets
 import numpy as np
 import torch
@@ -253,6 +254,26 @@ def parse_args(input_args=None):
         default=None,
         help=(
             "A folder containing the training data. Folder contents must follow the structure described in"
+            " https://huggingface.co/docs/datasets/image_dataset#imagefolder. In particular, a `metadata.jsonl` file"
+            " must exist to provide the captions for the images. Ignored if `dataset_name` is specified."
+        ),
+    )
+    parser.add_argument(
+        "--validation_data_dir",
+        type=str,
+        default=None,
+        help=(
+            "A folder containing the validation data. Folder contents must follow the structure described in"
+            " https://huggingface.co/docs/datasets/image_dataset#imagefolder. In particular, a `metadata.jsonl` file"
+            " must exist to provide the captions for the images. Ignored if `dataset_name` is specified."
+        ),
+    )
+    parser.add_argument(
+        "--validation_data_output",
+        type=str,
+        default=None,
+        help=(
+            "A folder containing the validation data. Folder contents must follow the structure described in"
             " https://huggingface.co/docs/datasets/image_dataset#imagefolder. In particular, a `metadata.jsonl` file"
             " must exist to provide the captions for the images. Ignored if `dataset_name` is specified."
         ),
@@ -901,6 +922,7 @@ def main(args):
         # See more about loading custom images at
         # https://huggingface.co/docs/datasets/v2.4.0/en/image_load#imagefolder
 
+
     # Preprocessing the datasets.
     # We need to tokenize inputs and targets.
     column_names = dataset["train"].column_names
@@ -959,6 +981,7 @@ def main(args):
         ]
     )
 
+
     def preprocess_train(examples):
         images = [image.convert("RGB") for image in examples[image_column]]
         # image aug
@@ -995,11 +1018,13 @@ def main(args):
                 examples["filenames"] = fnames
         return examples
 
+
     with accelerator.main_process_first():
         if args.max_train_samples is not None:
             dataset["train"] = dataset["train"].shuffle(seed=args.seed).select(range(args.max_train_samples))
         # Set the training transforms
         train_dataset = dataset["train"].with_transform(preprocess_train, output_all_columns=True)
+        
 
     def collate_fn(examples):
         pixel_values = torch.stack([example["pixel_values"] for example in examples])
@@ -1237,6 +1262,10 @@ def main(args):
                 progress_bar.update(1)
                 global_step += 1
                 accelerator.log({"train_loss": train_loss}, step=global_step)
+                
+                # intermediate var train loss
+                inter_train_loss = train_loss
+
                 train_loss = 0.0
 
                 # DeepSpeed requires saving weights on every device; saving weights only on the main process would cause issues.
@@ -1273,7 +1302,10 @@ def main(args):
                 break
 
         if accelerator.is_main_process:
-            if args.validation_prompt is not None and epoch % args.validation_epochs == 0:
+            
+            ######################################### original code
+            
+            if args.validation_prompt is not None and epoch % args.validation_epochs == 0 and args.validation_data_output is None:
                 # create pipeline
                 pipeline = StableDiffusionXLPipeline.from_pretrained(
                     args.pretrained_model_name_or_path,
@@ -1290,8 +1322,87 @@ def main(args):
 
                 del pipeline
                 torch.cuda.empty_cache()
+            
+
+            ######################################### added for validation
+
+            if args.validation_data_ouput is not None:
+                import pandas as pd
+
+                pipeline = StableDiffusionXLPipeline.from_pretrained(
+                    args.pretrained_model_name_or_path,
+                    vae=vae,
+                    text_encoder=unwrap_model(text_encoder_one),
+                    text_encoder_2=unwrap_model(text_encoder_two),
+                    unet=unwrap_model(unet),
+                    revision=args.revision,
+                    variant=args.variant,
+                    torch_dtype=weight_dtype,
+                )
+
+                os.makedirs(f"{args.validation_data_output}_{epoch}", exist_ok=True)
+
+                df = pd.read_csv(f"{args.validation_data_dir}/metadata.csv")
+
+                # Prompt
+                for i, row in df.iterrows():
+                  prompt = row['text']
+
+                  image = pipe(
+                    prompt=prompt,
+                    height=768, width=576,
+                    num_inference_steps=60,
+                    guidance_scale=7.8
+                  ).images[0]
+
+                  logger.info(
+                  f"Running validation... \n Generating images with prompt:"
+                  f" {prompt}."
+                  )
+                  
+                  
+                  image.resize((384, 512), Image.LANCZOS).save(f"{args.validation_data_output}_{epoch}/{row['id']}.jpg")
+                
+                
+                del pipeline
+                torch.cuda.empty_cache()
+
+
+                ## CALCUL VALIDATION METRICS
+
+                # === FID
+                from torch_fidelity import calculate_metrics   
+                GEN_PATH = f"{args.validation_data_output}_{epoch}"
+                REAL_PATH = f"{args.validation_data_dir}"
+
+                metrics = calculate_metrics(
+                    input1=GEN_PATH,
+                    input2=REAL_PATH,
+                    cuda=torch.cuda.is_available(),
+                    fid=True,
+                    verbose=False
+                )
+
+                val_loss = metrics
+                
+                del metrics                
+                torch.cuda.empty_cache()
+
+                
+
+                if os.path.exists(f"{args.output_dir}/eval.csv"):
+                    metrics_df = pd.read_csv(f"{args.output_dir}/eval.csv")
+                else:
+                    metrics_df = pd.DataFrame(columns={"epoch", "train_loss", "val_loss"})
+                
+                metrics_df.loc[len(metrics_df)] = [epoch, inter_train_loss, val_los]
+
+                metrics_df.to_csv(f"{args.output_dir}/eval.csv", index=False)
+
+
+
         if accelerator.is_main_process and args.early_stopping_patience is not None:
-            current_metric = train_loss
+            current_metric = val_loss
             
             improved = (current_metric < best_metric) if args.early_stopping_mode == "min" else (current_metric > best_metric)
 
@@ -1309,6 +1420,7 @@ def main(args):
                     should_stop = True
         if should_stop:
             break
+
     # Save the lora layers
     accelerator.wait_for_everyone()
     if accelerator.is_main_process:
@@ -1375,7 +1487,21 @@ def main(args):
                 commit_message="End of training",
                 ignore_patterns=["step_*", "epoch_*"],
             )
-    print(f'best_loss:{best_metric}')
+    
+
+    metrics_df = pd.read_csv(f"{args.output_dir}/eval.csv")
+    
+    df_val_loss = metrics_df['val_loss']
+    df_train_loss = metrics_df['train_loss']
+
+    delta_val_losses = abs(df_val_loss.diff())
+    delta_train_losses = abs(df_train_loss.diff())
+    delta_epoches = abs(df_val_loss.diff())
+
+    velocity = ((delta_val_losses / delta_epoches).sum() * 0.5 + ((delta_train_losses / delta_epoches).sum() ) * 0.5) / len(metrics_df) 
+
+    print(f'velocity:{velocity}')
+    
     accelerator.end_training()
 
 
