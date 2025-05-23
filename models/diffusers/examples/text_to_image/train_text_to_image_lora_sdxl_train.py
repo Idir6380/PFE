@@ -1326,7 +1326,7 @@ def main(args):
 
             ######################################### added for validation
 
-            if args.validation_data_ouput is not None:
+            if args.validation_data_output is not None:
                 import pandas as pd
 
                 pipeline = StableDiffusionXLPipeline.from_pretrained(
@@ -1348,7 +1348,7 @@ def main(args):
                 for i, row in df.iterrows():
                   prompt = row['text']
 
-                  image = pipe(
+                  image = pipeline(
                     prompt=prompt,
                     height=768, width=576,
                     num_inference_steps=60,
@@ -1395,7 +1395,7 @@ def main(args):
                 else:
                     metrics_df = pd.DataFrame(columns={"epoch", "train_loss", "val_loss"})
                 
-                metrics_df.loc[len(metrics_df)] = [epoch, inter_train_loss, val_los]
+                metrics_df.loc[len(metrics_df)] = [epoch, inter_train_loss, val_loss]
 
                 metrics_df.to_csv(f"{args.output_dir}/eval.csv", index=False)
 
