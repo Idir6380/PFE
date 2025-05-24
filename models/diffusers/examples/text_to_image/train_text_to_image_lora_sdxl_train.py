@@ -1383,7 +1383,7 @@ def main(args):
                 # === FID
                 from torch_fidelity import calculate_metrics   
                 GEN_PATH = f"{args.validation_data_output}_{epoch}"
-                REAL_PATH = f"{args.validation_data_dir}"
+                REAL_PATH = f"{args.validation_data_dir}/validation_{epoch}/images"
 
                 metrics = calculate_metrics(
                     input1=GEN_PATH,
