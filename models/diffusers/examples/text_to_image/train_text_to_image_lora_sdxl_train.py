@@ -1351,7 +1351,7 @@ def main(args):
 
                 os.makedirs(f"{args.validation_data_output}_{epoch}", exist_ok=True)
 
-                df = pd.read_csv(f"{args.validation_data_dir}/metadata.csv")
+                df = pd.read_csv(f"{args.validation_data_dir}/validation_{epoch}/validation_{epoch % 135}.csv")
 
                 # Prompt
                 for i, row in df.iterrows():
@@ -1398,7 +1398,6 @@ def main(args):
                 del metrics                
                 torch.cuda.empty_cache()
 
-                
 
                 if os.path.exists(f"{args.output_dir}/eval.csv"):
                     metrics_df = pd.read_csv(f"{args.output_dir}/eval.csv")
