@@ -1141,9 +1141,9 @@ def main(args):
     )
 
     best_metric = float("inf") if args.early_stopping_mode == "min" else -float("inf")
-    epochs_without_improvement = 0
+    epochs_without_improvement = 12
     should_stop = False
-
+    best_metric = 70.41691823177544
     for epoch in range(first_epoch, args.num_train_epochs):
         unet.train()
         if args.train_text_encoder:
@@ -1341,6 +1341,7 @@ def main(args):
                 )
             
                 pipeline = pipeline.to(accelerator.device)
+                pipeline.set_progress_bar_config(disable=True)
 
                 # run inference
                 generator = torch.Generator(device=accelerator.device).manual_seed(args.seed) if args.seed is not None else None
@@ -1351,8 +1352,8 @@ def main(args):
 
                 os.makedirs(f"{args.validation_data_output}_{epoch}", exist_ok=True)
 
-                df = pd.read_csv(f"{args.validation_data_dir}/validation_{epoch}/validation_{epoch % 135}.csv")
-
+                df = pd.read_csv(f"{args.validation_data_dir}/validation_{epoch % 10}/validation_{epoch % 10}.csv")
+                print(f'generating{epoch}')
                 # Prompt
                 for i, row in df.iterrows():
                     prompt = row['text']
@@ -1360,19 +1361,19 @@ def main(args):
                     with autocast_ctx:
                       image = pipeline(
                         prompt=prompt,
-                        height=768, width=576,
+                        height=512, width=384,
                         num_inference_steps=60,
                         guidance_scale=7.8
                       ).images[0]
 
-                      logger.info(
-                      f"Running validation... \n Generating images with prompt:"
-                      f" {prompt}."
-                      )
+                      #logger.info(
+                      #f"Running validation... \n Generating images with prompt:"
+                      #f" {prompt}."
+                      #)
 
 
-                      image.resize((384, 512), Image.LANCZOS).save(f"{args.validation_data_output}_{epoch}/{row['file_name']}")
-                
+                      #image.resize((384, 512), Image.LANCZOS).save(f"{args.validation_data_output}_{epoch}/{row['file_name']}")##
+                      image.save(f"{args.validation_data_output}_{epoch}/{row['file_name']}")
                 
                 del pipeline
                 torch.cuda.empty_cache()
@@ -1383,7 +1384,7 @@ def main(args):
                 # === FID
                 from torch_fidelity import calculate_metrics   
                 GEN_PATH = f"{args.validation_data_output}_{epoch}"
-                REAL_PATH = f"{args.validation_data_dir}/validation_{epoch}/images"
+                REAL_PATH = f"{args.validation_data_dir}/validation_{epoch%10}/images"
 
                 metrics = calculate_metrics(
                     input1=GEN_PATH,
@@ -1393,7 +1394,7 @@ def main(args):
                     verbose=False
                 )
 
-                val_loss = metrics
+                val_loss = metrics["frechet_inception_distance"]
                 
                 del metrics                
                 torch.cuda.empty_cache()
@@ -1402,7 +1403,7 @@ def main(args):
                 if os.path.exists(f"{args.output_dir}/eval.csv"):
                     metrics_df = pd.read_csv(f"{args.output_dir}/eval.csv")
                 else:
-                    metrics_df = pd.DataFrame(columns={"epoch", "train_loss", "val_loss"})
+                    metrics_df = pd.DataFrame(columns=["epoch", "train_loss", "val_loss"])
                 
                 metrics_df.loc[len(metrics_df)] = [epoch, inter_train_loss, val_loss]
 
